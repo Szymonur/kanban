@@ -1,6 +1,9 @@
 import { useState } from "react";
 import type { TaskType } from "../types/task";
 
+import SimpleMDE from "react-simplemde-editor";
+import "easymde/dist/easymde.min.css";
+import "codemirror/lib/codemirror.css";
 interface CreateTaskFormProps {
     onSubmit: (task: TaskType) => void;
 }
@@ -58,13 +61,11 @@ const CreateTaskForm = ({ onSubmit }: CreateTaskFormProps) => {
 
             <div className="mb-3">
                 <label className="form-label">Description</label>
-                <textarea
-                    className="form-control"
-                    name="description"
-                    rows={3}
+                <SimpleMDE
                     value={task.description}
-                    onChange={handleChange}
-                    required
+                    onChange={(value) =>
+                        setTask({ ...task, description: value })
+                    }
                 />
             </div>
 

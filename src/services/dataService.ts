@@ -1,32 +1,61 @@
 import type { TaskType } from "../types/task";
-
-const STORAGE_KEY = "tasks";
+import type { UserType } from "../types/user";
+import { db, auth } from "./firebaseConfig";
+import {
+    collection,
+    doc,
+    getDocs,
+    updateDoc,
+    deleteDoc,
+    addDoc,
+    query,
+    where,
+} from "firebase/firestore";
 
 export const dataService = {
-    getTasks(): TaskType[] {
-        const saved = localStorage.getItem(STORAGE_KEY);
-        return saved ? JSON.parse(saved) : [];
-    },
-
-    addTask(task: TaskType) {
-        const taskWithId = { ...task, id: Date.now().toString() };
-        const tasks = this.getTasks();
-        const updated = [...tasks, taskWithId];
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-        return taskWithId;
-    },
-
-    updateTask(updatedTask: TaskType) {
-        const tasks = this.getTasks();
-        const newList = tasks.map((t) =>
-            t.id === updatedTask.id ? updatedTask : t
+    async getTasks(): Promise<TaskType[]> {
+        const user = auth.currentUser;
+        if (!user) return [];
+        const q = query(
+            collection(db, "tasks"),
+            where("ownerUid", "==", user.uid)
         );
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(newList));
+        const snapshot = await getDocs(q);
+        return snapshot.docs.map(
+            (doc) => ({ ...doc.data(), id: doc.id } as TaskType)
+        );
     },
 
-    deleteTask(taskId: string) {
-        const tasks = this.getTasks();
-        const newList = tasks.filter((t) => t.id !== taskId);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(newList));
+    async addTask(task: TaskType): Promise<TaskType | null> {
+        const user = auth.currentUser;
+        if (!user) return null;
+        const taskWithOwner = { ...task, ownerUid: user.uid };
+        const docRef = await addDoc(collection(db, "tasks"), taskWithOwner);
+        return { ...taskWithOwner, id: docRef.id };
+    },
+
+    async updateTask(updatedTask: TaskType): Promise<void> {
+        if (!updatedTask.id) return;
+        // Remove id from update payload
+        const { id, ...updateFields } = updatedTask;
+        await updateDoc(doc(db, "tasks", updatedTask.id), updateFields);
+    },
+
+    async deleteTask(taskId: string): Promise<void> {
+        await deleteDoc(doc(db, "tasks", taskId));
+    },
+
+    async getUsers(): Promise<UserType[]> {
+        const user = auth.currentUser;
+        if (!user) return [];
+
+        const snapshot = await getDocs(collection(db, "users"));
+        return snapshot.docs.map(
+            (doc) =>
+                ({
+                    id: doc.id,
+                    ...(doc.data() as Omit<UserType, "id">),
+                } as UserType)
+        );
     },
 };

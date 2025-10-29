@@ -1,7 +1,11 @@
 import { useState } from "react";
+import { dataService } from "../services/dataService";
 import type { TaskType } from "../types/task";
 import Modal from "./Modal";
-import { dataService } from "../services/dataService";
+import ReactMarkdown from "react-markdown";
+import SimpleMDE from "react-simplemde-editor";
+import "easymde/dist/easymde.min.css";
+import "codemirror/lib/codemirror.css";
 
 interface TaskProps extends TaskType {
     onUpdate?: () => void;
@@ -17,10 +21,13 @@ const Task = ({
     onUpdate,
 }: TaskProps) => {
     const [showModal, setShowModal] = useState(false);
+    const [editescription, setEditescription] = useState(false);
+    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [taskData, setTaskData] = useState({
         status,
         assigned,
         dueDate: dueDate || "",
+        description: description,
     });
 
     const updateTask = (updates: Partial<typeof taskData>) => {
@@ -30,7 +37,7 @@ const Task = ({
         const updatedTask: TaskType = {
             id,
             title,
-            description,
+            description: newData.description || description,
             status: newData.status,
             assigned: newData.assigned,
             dueDate: newData.dueDate || undefined,
@@ -49,6 +56,9 @@ const Task = ({
     const handleAssignedChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         updateTask({ assigned: e.target.value });
     };
+    const handleDescriptionChange = (value: string) => {
+        updateTask({ description: value });
+    };
 
     const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         updateTask({ dueDate: e.target.value });
@@ -65,8 +75,31 @@ const Task = ({
                     }}
                 >
                     <div className="row">
-                        <div className="col-9">
-                            <p className="card-text">{description}</p>
+                        <div className="col-9 text-start">
+                            <div>
+                                <div style={{ height: "100%" }}>
+                                    {!editescription && (
+                                        <ReactMarkdown>
+                                            {taskData.description}
+                                        </ReactMarkdown>
+                                    )}
+                                    {editescription && (
+                                        <SimpleMDE
+                                            value={taskData.description}
+                                            onChange={handleDescriptionChange}
+                                        />
+                                    )}
+                                </div>
+                                <button
+                                    className="btn btn-light m-1 "
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        setEditescription(!editescription);
+                                    }}
+                                >
+                                    {editescription ? "💾" : "✏️"}
+                                </button>
+                            </div>
                         </div>
                         <div className="col-3 gap-2">
                             <div className="mb-3">
@@ -111,13 +144,61 @@ const Task = ({
                                     min={new Date().toISOString().split("T")[0]}
                                 />
                             </div>
+                            <button
+                                className="btn btn-outline-danger mt-4"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    setShowDeleteConfirm(true);
+                                }}
+                            >
+                                Delete task
+                            </button>
                         </div>
                     </div>
                 </Modal>
             )}
             {/* END --- TASK DETAILS MODAL */}
+
+            {/*START --- DELETE CONFIRMATION MODAL */}
+            {showDeleteConfirm && (
+                <Modal
+                    title="Confirm delete"
+                    onDismiss={() => setShowDeleteConfirm(false)}
+                >
+                    <div>
+                        <p>
+                            Are you sure you want to delete the task "
+                            <strong>{title}</strong>"?
+                        </p>
+                        <div className="d-flex justify-content-end">
+                            <button
+                                className="btn btn-secondary me-2"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    setShowDeleteConfirm(false);
+                                }}
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                className="btn btn-danger"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    dataService.deleteTask(id);
+                                    setShowDeleteConfirm(false);
+                                    setShowModal(false);
+                                    if (onUpdate) onUpdate();
+                                }}
+                            >
+                                Delete
+                            </button>
+                        </div>
+                    </div>
+                </Modal>
+            )}
+            {/* END --- DELETE CONFIRMATION MODAL */}
             <div
-                className="border border-0 border-top cursor-pointer"
+                className="border border-0 border-top border-dark cursor-pointer"
                 style={{ cursor: "grab" }}
                 draggable
                 onClick={() => setShowModal(true)}
@@ -136,18 +217,25 @@ const Task = ({
                 }}
             >
                 <div className="card-body row g-2">
-                    <h6 className="card-title">
+                    <h6 className="card-title m-0">
                         <strong>{title}</strong>
                     </h6>
-                    <span className="truncate-4">{description}</span>
-                    <span>
+                    <span
+                        className="truncate-4 text-start"
+                        style={{ fontSize: "13px" }}
+                    >
+                        <ReactMarkdown>{taskData.description}</ReactMarkdown>
+                    </span>
+                    <span className="text-start">
                         <strong>Status:</strong> {taskData.status}
                     </span>
-                    <span>
-                        <strong>Assigned:</strong> {taskData.assigned}
+                    <span className="text-start">
+                        <strong>Assigned:</strong> <br /> {taskData.assigned}
                     </span>
                     {taskData.dueDate && (
-                        <span>Due date: {taskData.dueDate}</span>
+                        <span className="text-start">
+                            Due date: {taskData.dueDate}
+                        </span>
                     )}
                 </div>
             </div>
